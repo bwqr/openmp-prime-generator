@@ -10,20 +10,9 @@ typedef int32_t num;
 
 static num NUM_PER_TASK;
 
-struct node {
-    std::vector<num>::iterator iterator;
-    std::vector<num>::iterator end;
-
-    bool operator<(const node &other) const {
-        return *iterator >= *other.iterator;
-    }
-};
-
 void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes);
 
 void primeGenerator(num start, num end, const std::vector<num> &primes, std::vector<num> *foundPrimes);
-
-void mergeInto(std::vector<num> *parent, std::vector<std::vector<num>> *children);
 
 int main(int argc, char **argv) {
     if (argc < 3) {
@@ -63,7 +52,6 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
         std::vector<std::vector<num>> foundPrimes(size);
 
 #pragma omp parallel for default(none) shared(lower_bound, upper_bound, foundPrimes, p, NUM_PER_TASK)
-
         for (num i = lower_bound + 1; i < upper_bound; i += NUM_PER_TASK) {
             primeGenerator(i, std::min(i + NUM_PER_TASK - 1, upper_bound), p,
                            &foundPrimes[(i - lower_bound) / NUM_PER_TASK]);
@@ -74,34 +62,7 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
                 p.push_back(prime);
             }
         }
-        size_t k = primes->size();
     }
-}
-
-void mergeInto(std::vector<num> *parent, std::vector<std::vector<num>> *children) {
-    std::vector<num>::iterator child;
-    auto &p = *parent;
-    auto &c = *children;
-
-    std::priority_queue<node> q;
-    for (num i = 0; i < c.size(); i++) {
-        if (c[i].size() > 0) {
-            q.push({c[i].begin(), c[i].end()});
-        }
-    }
-
-    while (!q.empty()) {
-        auto node = q.top();
-        q.pop();
-        p.push_back(*node.iterator);
-
-        node.iterator++;
-        if (node.iterator != node.end) {
-            q.push({node.iterator, node.end});
-        }
-    }
-
-    int k = q.size();
 }
 
 void primeGenerator(num start, num end, const std::vector<num> &primes, std::vector<num> *foundPrimes) {
@@ -109,8 +70,8 @@ void primeGenerator(num start, num end, const std::vector<num> &primes, std::vec
     int k;
     int n;
     int quo, rem;
-    auto &p = *foundPrimes;
 
+    auto &p = *foundPrimes;
     p.reserve(end - start);
 
     P1:
@@ -149,8 +110,4 @@ void primeGenerator(num start, num end, const std::vector<num> &primes, std::vec
     P8:
     k = k + 1;
     goto P6;
-}
-
-void givenGenerator() {
-
 }
