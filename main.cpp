@@ -14,6 +14,8 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes);
 
 void primeGenerator(num start, num end, const std::vector<num> &primes, std::vector<num> *foundPrimes);
 
+num numberOfPrimes(const num &number);
+
 int main(int argc, char **argv) {
     if (argc < 3) {
         std::cerr << "Two arguments expected" << std::endl;
@@ -23,15 +25,26 @@ int main(int argc, char **argv) {
 
     num N = std::stoi(argv[1]);
     NUM_PER_TASK = std::stoi(argv[2]);
-
     std::vector<num> primes;
-    primes.reserve(static_cast<num>(std::sqrt(N)));
+
+    if (N < 2) {
+        goto exit;
+    }
+
+    primes.reserve(static_cast<unsigned long>(numberOfPrimes(N)));
 
     primes.push_back(2);
+
+    if (N == 2) {
+        goto print;
+    }
     primes.push_back(3);
     primeRecursive(N, 10, &primes);
+    print:
     std::cout << primes.size() << std::endl;
 //    for (size_t i = 0; i < primes.size(); i++) std::cout << primes[i] << std::endl;
+    exit:
+    return 0;
 }
 
 void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
@@ -65,6 +78,10 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
     }
 }
 
+num numberOfPrimes(const num &number) {
+    return static_cast<num>(static_cast<float>(number) / std::log(number - 1));
+}
+
 void primeGenerator(num start, num end, const std::vector<num> &primes, std::vector<num> *foundPrimes) {
     int j;
     int k;
@@ -72,7 +89,7 @@ void primeGenerator(num start, num end, const std::vector<num> &primes, std::vec
     int quo, rem;
 
     auto &p = *foundPrimes;
-    p.reserve(end - start);
+    p.reserve(static_cast<unsigned long>(numberOfPrimes(end) - numberOfPrimes(start)));
 
     P1:
     n = start % 2 == 0 ? start + 1 : start;
