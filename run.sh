@@ -2,7 +2,7 @@ SCHEDULING_METHODS=(dynamic guided static)
 
 CHUNK_SIZES=(1 10 100 1000)
 
-THREAD_NUMS=(1 2 4 8)
+THREAD_NUMS=(1 2 4 12)
 
 M=(1000 10000 100000 10000000)
 
@@ -20,11 +20,12 @@ for schedule in "${SCHEDULING_METHODS[@]}"; do
     export OMP_SCHEDULE="$schedule,$chunk"
 
     for m in "${M[@]}"; do
-      OUTPUT="$m, $schedule, $chunk, "
+      OUTPUT="$m, $schedule, $chunk"
       i=0
       for thread in "${THREAD_NUMS[@]}"; do
         export OMP_NUM_THREADS=$thread
         start=$(date +%s.%N)
+
         $EXEC "$m" >$EXEC_OUTPUT_FILE
         end=$(date +%s.%N)
         time=$(echo "$end - $start" | bc -l)
