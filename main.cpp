@@ -2,13 +2,14 @@
 #include <vector>
 #include <cmath>
 #include <omp.h>
+#include <array>
 
 //#define NUM_PER_TASK 2048
 
 typedef int32_t num;
 
 
-void mergeSortedVectors(std::vector<num> *dest, std::vector<std::vector<num>> &sortedVectors);
+void mergeRecursive(std::vector<num> *dest, std::vector<std::vector<num>> &sortedVectors);
 
 void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes);
 
@@ -56,7 +57,7 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
 
         primeGenerator(3, upper_bound, *primes, &foundPrimes);
 
-        mergeSortedVectors(primes, foundPrimes);
+        mergeRecursive(primes, foundPrimes);
     } else {
         num lower_bound = static_cast<num>(std::ceil(std::sqrt(upper_bound)));
 
@@ -66,7 +67,7 @@ void primeRecursive(num upper_bound, num min_bound, std::vector<num> *primes) {
 
         primeGenerator(lower_bound + 1, upper_bound, *primes, &foundPrimes);
 
-        mergeSortedVectors(primes, foundPrimes);
+        mergeRecursive(primes, foundPrimes);
     }
 }
 
@@ -130,41 +131,43 @@ void primeGenerator(num start, num end, const std::vector<num> &primes, std::vec
     }
 }
 
-void mergeRecursive(std::vector<num> *dest, std::vector<std::vector<num> *> &sortedVectors) {
-    std::vector<std::vector<num>::iterator> pointers;
+void mergeSortedVectors(std::vector<num> *dest, std::array<std::vector<num> *, 2> &sortedVectors) {
     size_t currentPointerIndex = 0;
+    size_t nextPointerIndex = 1;
+    std::array<int, 2> pointers = {0, 0};
 
-    for (size_t i = 0; i < sortedVectors.size(); i++) {
-        pointers.push_back(sortedVectors[i]->begin());
+    if (sortedVectors[nextPointerIndex]->size() == 0) {
+        for (int i = 0; i < sortedVectors[currentPointerIndex]->size(); ++i) {
+            dest->push_back((*sortedVectors[currentPointerIndex])[i]);
+        }
+
+        return;
     }
 
     while (true) {
-        if (pointers[currentPointerIndex] == sortedVectors[currentPointerIndex]->end()) {
-            sortedVectors.erase(sortedVectors.begin() + currentPointerIndex);
-            pointers.erase(pointers.begin() + currentPointerIndex);
-            if (pointers.empty()) {
-                break;
-            }
-            currentPointerIndex %= pointers.size();
-            continue;
+
+        if (pointers[currentPointerIndex] == sortedVectors[currentPointerIndex]->size()) {
+            currentPointerIndex = (currentPointerIndex + 1) % 2;
+            break;
         }
 
-        num min = *pointers[0];
-        std::vector<num>::iterator it = pointers[0];
-        for (size_t i = 1; i < pointers.size(); i++) {
-            if (*pointers[i] < min) {
-                min = *pointers[i];
-                it = pointers[i];
-                currentPointerIndex = i;
-            }
+        num min = (*sortedVectors[currentPointerIndex])[pointers[currentPointerIndex]];
+        if ((*sortedVectors[nextPointerIndex])[pointers[nextPointerIndex]] < min) {
+            min = (*sortedVectors[nextPointerIndex])[pointers[nextPointerIndex]];
+            currentPointerIndex = (currentPointerIndex + 1) % 2;
+            nextPointerIndex = (nextPointerIndex + 1) % 2;
         }
 
-        dest->push_back(*pointers[currentPointerIndex]);
+        dest->push_back(min);
         pointers[currentPointerIndex]++;
+    }
+
+    for (int i = pointers[currentPointerIndex]; i < sortedVectors[currentPointerIndex]->size(); ++i) {
+        dest->push_back((*sortedVectors[currentPointerIndex])[i]);
     }
 }
 
-void mergeSortedVectors(std::vector<num> *dest, std::vector<std::vector<num>> &sortedVectors) {
+void mergeRecursive(std::vector<num> *dest, std::vector<std::vector<num>> &sortedVectors) {
     {
         auto size = sortedVectors.size();
 
@@ -185,6 +188,8 @@ void mergeSortedVectors(std::vector<num> *dest, std::vector<std::vector<num>> &s
     std::vector<std::vector<std::vector<num>>> copyIns(2);
     int copyIndex = 0;
 
+    std::vector<num> tmp = {};
+
     for (size_t i = 0; i < iterationNum; i++) {
         copyIndex = i % 2;
         copyIns[copyIndex].clear();
@@ -196,29 +201,30 @@ void mergeSortedVectors(std::vector<num> *dest, std::vector<std::vector<num>> &s
         }
 #pragma omp parallel for default(none) shared(copyIndex, copyIns, dest, srcArrays)
         for (int j = 0; j < (srcArrays->size() / 2) * 2; j += 2) {
-            std::vector<std::vector<num> *> src = {&(*srcArrays)[j], &(*srcArrays)[j + 1]};
-            mergeRecursive(&copyIns[copyIndex][j / 2], src);
+            std::array<std::vector<num> *, 2> src = {&(*srcArrays)[j], &(*srcArrays)[j + 1]};
+            mergeSortedVectors(&copyIns[copyIndex][j / 2], src);
         }
 
         if (srcArrays->size() % 2 != 0) {
-            std::vector<std::vector<num> *> src = {&(*srcArrays)[srcArrays->size() - 1]};
+            std::array<std::vector<num> *, 2> src = {&tmp, &(*srcArrays)[srcArrays->size() - 1]};
 
-            mergeRecursive(&copyIns[copyIndex][copyIns[copyIndex].size() - 1], src);
+            mergeSortedVectors(&copyIns[copyIndex][copyIns[copyIndex].size() - 1], src);
         }
 
         srcArrays = &copyIns[copyIndex];
     }
 
     if (sortedVectors.size() % 2 == 0) {
-        std::vector<std::vector<num> *> src = {&copyIns[copyIndex][0]};
-        mergeRecursive(dest, src);
+        std::array<std::vector<num> *, 2> src = {&tmp, &copyIns[copyIndex][0]};
+        mergeSortedVectors(dest, src);
     } else {
-        std::vector<std::vector<num> *> src = {};
+        std::array<std::vector<num> *, 2> src = {};
+        src[0] = &sortedVectors[sortedVectors.size() - 1];
         if (copyIns[copyIndex].size() > 0) {
-            src = {&copyIns[copyIndex][0], &sortedVectors[sortedVectors.size() - 1]};
+            src[1] = &copyIns[copyIndex][0];
         } else {
-            src = {&sortedVectors[sortedVectors.size() - 1]};
+            src[1] = &tmp;
         }
-        mergeRecursive(dest, src);
+        mergeSortedVectors(dest, src);
     }
 }
